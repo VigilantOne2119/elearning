@@ -22,7 +22,7 @@ export default function Homework() {
     setBusyId(m.id);
     try {
       await api.post(`/homework/${m.id}/complete`);
-      toast.success(`Homework marked complete — ${m.title}`);
+      toast.success(`Homework marked complete. ${m.title}`);
       await load();
     } catch (e) {
       toast.error("Could not update homework");

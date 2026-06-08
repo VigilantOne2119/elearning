@@ -61,7 +61,7 @@ export default function Quizzes() {
                         size={84}
                         stroke={8}
                         color={m.quiz_passed ? "#10B981" : "#E60000"}
-                        label={m.quiz_attempted ? `${m.quiz_score_pct}%` : "—"}
+                        label={m.quiz_attempted ? `${m.quiz_score_pct}%` : "-"}
                       />
                     </div>
                     <div className="text-[10px] font-mono uppercase tracking-widest text-center">

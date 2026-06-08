@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { LOGO_URL } from "@/components/AppLayout";
 
 export default function Login() {
   const { login } = useAuth();
@@ -40,7 +41,9 @@ export default function Login() {
       {/* Left: form */}
       <div className="flex flex-col p-8 lg:p-14">
         <Link to="/" className="flex items-center gap-3 mb-12" data-testid="login-brand-link">
-          <div className="w-9 h-9 rounded-lg bg-[var(--s2d-red)] grid place-items-center text-white font-display font-black text-lg">S</div>
+          <div className="w-11 h-11 rounded-lg bg-[var(--s2d-red)]/10 grid place-items-center overflow-hidden">
+            <img src={LOGO_URL} alt="Safe2Drive" className="w-9 h-9 object-contain" />
+          </div>
           <div className="leading-tight">
             <div className="font-display font-extrabold text-[15px] tracking-tight">Safe2Drive</div>
             <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--s2d-muted)]">Online BDE · Ontario</div>
@@ -98,7 +101,7 @@ export default function Login() {
           </form>
 
           <p className="mt-6 text-sm text-[var(--s2d-muted)]">
-            Need an account? Contact Safe2Drive Ontario — your instructor will enroll you and email your login.
+            Need an account? Contact Safe2Drive Ontario and your instructor will enroll you and email your login.
           </p>
 
           <div className="mt-10 ink-card p-4 text-xs text-[var(--s2d-muted)]" data-testid="login-demo-hint">

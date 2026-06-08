@@ -124,7 +124,7 @@ export default function ModuleViewer() {
               </p>
               <div className="mt-8 inline-flex items-center gap-2 text-xs text-[var(--s2d-muted)] font-mono uppercase tracking-wider">
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--s2d-red)]" />
-                Content placeholder — your instructor will replace this with the full MTO lesson.
+                Content placeholder. Your instructor will replace this with the full MTO lesson.
               </div>
             </div>
           </div>
@@ -224,7 +224,7 @@ function QuizPanel({ module, onClose, onSubmitted }) {
       });
       setResult(data);
       if (data.passed) toast.success(`Passed! ${data.score_pct}%`);
-      else toast.error(`Score: ${data.score_pct}% — 80% required to pass.`);
+      else toast.error(`Score: ${data.score_pct}%. 80% required to pass.`);
       onSubmitted?.();
     } catch (e) {
       toast.error("Could not submit quiz");

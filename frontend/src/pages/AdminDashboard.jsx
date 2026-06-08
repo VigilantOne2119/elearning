@@ -123,7 +123,7 @@ export default function AdminDashboard() {
               </thead>
               <tbody>
                 {students.length === 0 && (
-                  <tr><td colSpan="7" className="px-6 py-10 text-center text-[var(--s2d-muted)]">No students yet — enroll one above.</td></tr>
+                  <tr><td colSpan="7" className="px-6 py-10 text-center text-[var(--s2d-muted)]">No students yet. Enroll one above.</td></tr>
                 )}
                 {students.map((s) => (
                   <tr key={s.id} className="border-t border-black/5 hover:bg-[var(--s2d-surface)]/40" data-testid={`admin-student-row-${s.id}`}>
@@ -208,7 +208,7 @@ function EnrollModal({ onClose, onEnrolled }) {
         <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-black/5"><X className="w-4 h-4" /></button>
         <div className="text-xs font-mono uppercase tracking-widest text-[var(--s2d-red)]">New enrollment</div>
         <h2 className="font-display font-black text-2xl tracking-tight mt-1">Enroll a student</h2>
-        <p className="text-sm text-[var(--s2d-muted)] mt-1">A temporary password is generated automatically — share it with the student. They&apos;ll be required to change it on first login.</p>
+        <p className="text-sm text-[var(--s2d-muted)] mt-1">A temporary password is generated automatically. Share it with the student, and they&apos;ll be required to change it on first login.</p>
         <form onSubmit={submit} className="mt-5 space-y-4" data-testid="enroll-form">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--s2d-muted)] mb-2">Full name</label>
@@ -251,7 +251,7 @@ function CredentialsModal({ data, onClose }) {
 
         <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 inline-flex items-start gap-2">
           <Mail className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-          <span>Email integration is not yet configured — copy these credentials and send them to the student manually.</span>
+          <span>Email integration is not yet configured. Copy these credentials and send them to the student manually.</span>
         </div>
 
         <div className="mt-4 rounded-xl bg-[var(--s2d-ink)] text-white p-4 font-mono text-sm" data-testid="credentials-display">
@@ -288,7 +288,7 @@ function reasonBadge(reason) {
 }
 
 function fmtWhen(iso) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(iso);
   return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }

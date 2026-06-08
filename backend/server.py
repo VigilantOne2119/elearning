@@ -41,14 +41,14 @@ DEFAULT_MODULES = [
     {
         "id": 2,
         "title": "The Vehicle and its Components",
-        "subtitle": "Know your car — controls, fluids, tires, lights.",
+        "subtitle": "Know your car. Controls, fluids, tires, lights.",
         "image_url": "https://images.unsplash.com/photo-1654616111851-5394318e3279?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHwxfHxjYXIlMjBlbmdpbmUlMjBiYXklMjBjbGVhbnxlbnwwfHx8fDE3ODA5MDM1MDJ8MA&ixlib=rb-4.1.0&q=85",
         "duration_minutes": 130,
     },
     {
         "id": 3,
         "title": "Vehicle Handling",
-        "subtitle": "Steering, braking, accelerating — smooth and safe.",
+        "subtitle": "Steering, braking, accelerating. Smooth and safe.",
         "image_url": "https://images.unsplash.com/photo-1611448746128-7c39e03b71e4?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwxfHxkcml2ZXIlMjBoYW5kcyUyMG9uJTIwc3RlZXJpbmclMjB3aGVlbCUyMHN1bnNldHxlbnwwfHx8fDE3ODA5MDM1MDJ8MA&ixlib=rb-4.1.0&q=85",
         "duration_minutes": 160,
     },

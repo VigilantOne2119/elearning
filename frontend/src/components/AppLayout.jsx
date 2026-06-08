@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { LayoutDashboard, BookOpen, Brain, FileText, ShieldCheck, LogOut, Menu, X } from "lucide-react";
 
 const LOGO_URL =
-  "https://cdn.prod.website-files.com/671db6b948a39462a6b930cc/67d7da1fcc787b9d150dc2d7_Screenshot%202025-03-17%20at%204.15.07%E2%80%AFAM.png";
+  "https://cdn.prod.website-files.com/671db6b948a39462a6b930cc/67a5332e67222957c3eff142_pngtree-red-cute-car-in-cartoon-style-clip-art-vector-illustration-png-image_7121289.png";
 
 function NavItem({ to, icon: Icon, children, testid }) {
   return (
@@ -47,7 +47,9 @@ export default function AppLayout({ children }) {
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/80 border-b border-black/5">
         <div className="max-w-[1400px] mx-auto px-5 lg:px-10 h-16 flex items-center justify-between">
           <Link to={user?.role === "admin" ? "/admin" : "/dashboard"} className="flex items-center gap-3" data-testid="brand-logo-link">
-            <div className="w-9 h-9 rounded-lg bg-[var(--s2d-red)] grid place-items-center text-white font-display font-black text-lg">S</div>
+            <div className="w-10 h-10 rounded-lg bg-[var(--s2d-red)]/10 grid place-items-center overflow-hidden">
+              <img src={LOGO_URL} alt="Safe2Drive" className="w-8 h-8 object-contain" />
+            </div>
             <div className="leading-tight">
               <div className="font-display font-extrabold text-[15px] tracking-tight">Safe2Drive</div>
               <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--s2d-muted)]">Online BDE · Ontario</div>
@@ -104,8 +106,8 @@ export default function AppLayout({ children }) {
 
       <footer className="border-t border-black/5 bg-[var(--s2d-surface)] mt-12">
         <div className="max-w-[1400px] mx-auto px-5 lg:px-10 py-8 flex flex-col md:flex-row items-center justify-between gap-3">
-          <div className="text-xs text-[var(--s2d-muted)]">© {new Date().getFullYear()} Safe2Drive Ontario — MTO-approved BDE</div>
-          <div className="text-xs text-[var(--s2d-muted)] font-mono">Built to mog the rest.</div>
+          <div className="text-xs text-[var(--s2d-muted)]">© {new Date().getFullYear()} Safe2Drive Ontario. MTO-approved BDE</div>
+          <div className="text-xs text-[var(--s2d-muted)] font-mono">Your safety is our drive.</div>
         </div>
       </footer>
     </div>
