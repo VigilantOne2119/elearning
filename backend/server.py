@@ -793,10 +793,14 @@ async def delete_snapshot(user_id: str, snapshot_id: str, _: dict = Depends(requ
 
 app.include_router(api)
 
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=[
+        "https://elearning-mauve-phi.vercel.app",
+        "http://localhost:3000"
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
