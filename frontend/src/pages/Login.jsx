@@ -116,6 +116,10 @@ export default function Login() {
           alt="Driving"
           className="absolute inset-0 w-full h-full object-cover opacity-70"
         />
+        <div className="absolute top-10 right-10 z-10 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15">
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--s2d-red)] animate-pulse" />
+          <span className="text-[11px] uppercase tracking-[0.18em] text-white/90 font-mono">MTO BDE · Markham, Ontario</span>
+        </div>
         <div className="relative z-10 h-full flex flex-col justify-end p-14 text-white">
           <div className="text-xs uppercase tracking-[0.2em] opacity-80">MTO-Approved BDE</div>
           <h2 className="font-display font-black text-5xl tracking-tight mt-2 leading-[1]">Your safety<br />is our drive.</h2>

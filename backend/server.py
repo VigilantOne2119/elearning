@@ -244,6 +244,15 @@ class QuizSubmitIn(BaseModel):
     answers: List[int]  # selected option index per question
 
 
+class SnapshotNoteIn(BaseModel):
+    note: str = Field(default="", max_length=300)
+
+
+# Snapshot config
+SNAPSHOT_RETENTION = 10
+SNAPSHOT_LOGIN_DEBOUNCE_HOURS = 6  # don't create login snapshot more than once per 6h
+
+
 # ---------- Lifespan: seed admin + indexes + modules ----------
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -252,6 +261,8 @@ async def lifespan(_app: FastAPI):
     await db.users.create_index("id", unique=True)
     await db.modules.create_index("id", unique=True)
     await db.progress.create_index([("user_id", 1), ("module_id", 1)])
+    await db.progress_snapshots.create_index([("user_id", 1), ("taken_at", -1)])
+    await db.progress_snapshots.create_index("id", unique=True)
 
     # seed admin
     admin_email = os.environ["ADMIN_EMAIL"].lower()
@@ -326,6 +337,12 @@ async def login(body: LoginIn, response: Response):
     access = create_access_token(user["id"], user["email"], user["role"])
     refresh = create_refresh_token(user["id"])
     set_auth_cookies(response, access, refresh)
+    # Auto-snapshot progress on student login (debounced)
+    if user.get("role") == "student":
+        try:
+            await _create_snapshot(user["id"], reason="login", note="Session login")
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Login snapshot failed: {e}")
     return {
         "id": user["id"],
         "email": user["email"],
@@ -379,6 +396,62 @@ async def _get_progress(user_id: str, module_id: int) -> dict:
         "last_slide_id": None,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+# ---------- Snapshot helpers (cloud progress backup) ----------
+async def _build_snapshot_payload(user_id: str) -> dict:
+    """Capture a full progress payload for a user across all modules."""
+    progress_docs = await db.progress.find({"user_id": user_id}, {"_id": 0}).to_list(200)
+    modules_completed = sum(1 for p in progress_docs if p.get("module_complete"))
+    total_watched_seconds = sum(p.get("watched_seconds", 0) for p in progress_docs)
+    total_modules = await db.modules.count_documents({})
+    return {
+        "progress": progress_docs,
+        "modules_completed": modules_completed,
+        "total_watched_seconds": total_watched_seconds,
+        "total_modules": total_modules,
+        "course_progress_pct": round((modules_completed / total_modules) * 100) if total_modules else 0,
+    }
+
+
+async def _create_snapshot(user_id: str, reason: str, note: str = "") -> Optional[dict]:
+    """Create a snapshot of the user's progress. Returns the snapshot doc or None.
+
+    Reasons: 'login', 'quiz', 'module_complete', 'homework', 'pre_restore', 'manual'.
+    """
+    # Skip noisy login snapshots if recent one exists
+    if reason == "login":
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=SNAPSHOT_LOGIN_DEBOUNCE_HOURS)).isoformat()
+        recent = await db.progress_snapshots.find_one({
+            "user_id": user_id,
+            "reason": "login",
+            "taken_at": {"$gt": cutoff},
+        })
+        if recent:
+            return None
+
+    payload = await _build_snapshot_payload(user_id)
+    snap = {
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "reason": reason,
+        "note": note,
+        "taken_at": datetime.now(timezone.utc).isoformat(),
+        **payload,
+    }
+    await db.progress_snapshots.insert_one(snap)
+    snap.pop("_id", None)
+
+    # Prune to last SNAPSHOT_RETENTION snapshots
+    extras = await db.progress_snapshots.find(
+        {"user_id": user_id},
+        {"_id": 0, "id": 1, "taken_at": 1, "reason": 1},
+    ).sort("taken_at", -1).skip(SNAPSHOT_RETENTION).to_list(500)
+    # Keep pre_restore safety snapshots — never prune those
+    to_delete = [e["id"] for e in extras if e.get("reason") != "pre_restore"]
+    if to_delete:
+        await db.progress_snapshots.delete_many({"id": {"$in": to_delete}})
+    return snap
 
 
 # ---------- Modules ----------
@@ -448,6 +521,13 @@ async def progress_slide(body: SlideProgressIn, user: dict = Depends(get_current
         {"$set": update, "$setOnInsert": {"quiz_attempted": False, "quiz_passed": False, "quiz_score_pct": 0, "homework_complete": False}},
         upsert=True,
     )
+    # Snapshot when a module is freshly completed (transition to complete)
+    was_complete = bool(existing.get("module_complete")) if existing else False
+    if module_complete and not was_complete:
+        try:
+            await _create_snapshot(user["id"], reason="module_complete", note=f"Module {body.module_id} completed")
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Module-complete snapshot failed: {e}")
     return {"ok": True, "watched_slides": len(watched), "total_slides": len(slide_ids), "module_complete": module_complete}
 
 
@@ -476,6 +556,10 @@ async def progress_quiz(body: QuizSubmitIn, user: dict = Depends(get_current_use
         }, "$setOnInsert": {"watched_seconds": 0, "watched_slide_ids": [], "homework_complete": False, "module_complete": False}},
         upsert=True,
     )
+    try:
+        await _create_snapshot(user["id"], reason="quiz", note=f"Module {body.module_id} quiz: {pct}%")
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Quiz snapshot failed: {e}")
     return {"ok": True, "score_pct": pct, "passed": passed, "correct": correct, "total": len(quiz)}
 
 
@@ -489,6 +573,10 @@ async def complete_homework(module_id: int, user: dict = Depends(get_current_use
          "$setOnInsert": {"user_id": user["id"], "module_id": module_id, "watched_seconds": 0, "watched_slide_ids": [], "quiz_attempted": False, "quiz_score_pct": 0, "quiz_passed": False, "module_complete": False}},
         upsert=True,
     )
+    try:
+        await _create_snapshot(user["id"], reason="homework", note=f"Module {module_id} homework complete")
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Homework snapshot failed: {e}")
     return {"ok": True}
 
 
@@ -556,7 +644,8 @@ async def admin_students(_: dict = Depends(require_admin)):
 
 
 def _generate_temp_password(length: int = 10) -> str:
-    import secrets, string
+    import secrets
+    import string
     alphabet = string.ascii_letters + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(length))
 
@@ -596,6 +685,7 @@ async def admin_delete_student(user_id: str, _: dict = Depends(require_admin)):
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Student not found")
     await db.progress.delete_many({"user_id": user_id})
+    await db.progress_snapshots.delete_many({"user_id": user_id})
     return {"ok": True}
 
 
@@ -617,11 +707,88 @@ async def admin_stats(_: dict = Depends(require_admin)):
     total_students = await db.users.count_documents({"role": "student"})
     total_progress = await db.progress.count_documents({})
     completed = await db.progress.count_documents({"module_complete": True})
+    total_snapshots = await db.progress_snapshots.count_documents({})
     return {
         "total_students": total_students,
         "total_progress_records": total_progress,
         "total_modules_completed": completed,
+        "total_snapshots": total_snapshots,
     }
+
+
+# ---------- Admin: Progress Snapshots ----------
+def _snapshot_summary(snap: dict) -> dict:
+    """Lightweight summary (no full progress array) for list endpoint."""
+    return {
+        "id": snap.get("id"),
+        "user_id": snap.get("user_id"),
+        "reason": snap.get("reason"),
+        "note": snap.get("note", ""),
+        "taken_at": snap.get("taken_at"),
+        "modules_completed": snap.get("modules_completed", 0),
+        "total_modules": snap.get("total_modules", 0),
+        "total_watched_seconds": snap.get("total_watched_seconds", 0),
+        "course_progress_pct": snap.get("course_progress_pct", 0),
+    }
+
+
+@api.get("/admin/students/{user_id}/snapshots")
+async def list_snapshots(user_id: str, _: dict = Depends(require_admin)):
+    student = await db.users.find_one({"id": user_id, "role": "student"})
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    snaps = await db.progress_snapshots.find({"user_id": user_id}, {"_id": 0, "progress": 0}).sort("taken_at", -1).to_list(100)
+    return {
+        "student": {"id": student["id"], "name": student["name"], "email": student["email"]},
+        "snapshots": [_snapshot_summary(s) for s in snaps],
+    }
+
+
+@api.post("/admin/students/{user_id}/snapshots")
+async def create_manual_snapshot(user_id: str, body: SnapshotNoteIn, _: dict = Depends(require_admin)):
+    student = await db.users.find_one({"id": user_id, "role": "student"})
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    snap = await _create_snapshot(user_id, reason="manual", note=body.note or "Admin manual backup")
+    return {"ok": True, "snapshot": _snapshot_summary(snap) if snap else None}
+
+
+@api.post("/admin/students/{user_id}/restore/{snapshot_id}")
+async def restore_snapshot(user_id: str, snapshot_id: str, _: dict = Depends(require_admin)):
+    student = await db.users.find_one({"id": user_id, "role": "student"})
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    snap = await db.progress_snapshots.find_one({"id": snapshot_id, "user_id": user_id}, {"_id": 0})
+    if not snap:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+
+    # Safety: create a pre_restore snapshot of the current state first
+    await _create_snapshot(user_id, reason="pre_restore", note=f"Auto-backup before restoring to {snap.get('taken_at')}")
+
+    # Overwrite current progress with snapshot progress
+    await db.progress.delete_many({"user_id": user_id})
+    now_iso = datetime.now(timezone.utc).isoformat()
+    restored_docs = snap.get("progress", []) or []
+    if restored_docs:
+        # Ensure each doc has the user_id and refreshed updated_at marker
+        for d in restored_docs:
+            d["user_id"] = user_id
+            d["updated_at"] = d.get("updated_at") or now_iso
+        await db.progress.insert_many(restored_docs)
+
+    return {
+        "ok": True,
+        "restored_to": snap.get("taken_at"),
+        "modules_restored": len(restored_docs),
+    }
+
+
+@api.delete("/admin/students/{user_id}/snapshots/{snapshot_id}")
+async def delete_snapshot(user_id: str, snapshot_id: str, _: dict = Depends(require_admin)):
+    res = await db.progress_snapshots.delete_one({"id": snapshot_id, "user_id": user_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+    return {"ok": True}
 
 
 app.include_router(api)

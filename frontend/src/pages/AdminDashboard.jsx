@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import AppLayout from "@/components/AppLayout";
 import api, { formatApiErrorDetail } from "@/lib/api";
-import { Users, GraduationCap, BookCheck, Clock, UserPlus, KeyRound, Trash2, Copy, X, Check, Mail } from "lucide-react";
+import { Users, GraduationCap, BookCheck, Clock, UserPlus, KeyRound, Trash2, Copy, X, Check, Mail, History, RotateCcw, Save, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 function fmtHrs(seconds) {
@@ -15,6 +15,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [showEnroll, setShowEnroll] = useState(false);
   const [credModal, setCredModal] = useState(null); // { name, email, temp_password, intro }
+  const [snapshotsFor, setSnapshotsFor] = useState(null); // student object
 
   const load = async () => {
     const [s, l] = await Promise.all([api.get("/admin/stats"), api.get("/admin/students")]);
@@ -72,7 +73,7 @@ export default function AdminDashboard() {
           </button>
         </header>
 
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+        <section className="grid grid-cols-2 lg:grid-cols-5 gap-5">
           <div className="ink-card p-6" data-testid="admin-stat-students">
             <Users className="w-7 h-7 text-[var(--s2d-red)]" />
             <div className="font-display font-extrabold text-4xl mt-3">{stats.total_students}</div>
@@ -87,6 +88,11 @@ export default function AdminDashboard() {
             <BookCheck className="w-7 h-7 text-[var(--s2d-red)]" />
             <div className="font-display font-extrabold text-4xl mt-3">{stats.total_modules_completed}</div>
             <div className="text-xs uppercase tracking-widest text-[var(--s2d-muted)] mt-1">Modules completed</div>
+          </div>
+          <div className="ink-card p-6" data-testid="admin-stat-snapshots">
+            <History className="w-7 h-7 text-[var(--s2d-red)]" />
+            <div className="font-display font-extrabold text-4xl mt-3">{stats.total_snapshots ?? 0}</div>
+            <div className="text-xs uppercase tracking-widest text-[var(--s2d-muted)] mt-1">Cloud snapshots</div>
           </div>
           <div className="ink-card p-6" data-testid="admin-stat-avg">
             <Clock className="w-7 h-7 text-[var(--s2d-red)]" />
@@ -139,6 +145,9 @@ export default function AdminDashboard() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => setSnapshotsFor(s)} className="p-2 rounded-lg hover:bg-black/5" title="View progress snapshots" data-testid={`snapshots-${s.id}`}>
+                          <History className="w-4 h-4 text-[var(--s2d-muted)] hover:text-[var(--s2d-ink)]" />
+                        </button>
                         <button onClick={() => resetPassword(s)} className="p-2 rounded-lg hover:bg-black/5" title="Reset password" data-testid={`reset-pw-${s.id}`}>
                           <KeyRound className="w-4 h-4 text-[var(--s2d-muted)] hover:text-[var(--s2d-ink)]" />
                         </button>
@@ -163,6 +172,13 @@ export default function AdminDashboard() {
       )}
 
       {credModal && <CredentialsModal data={credModal} onClose={() => setCredModal(null)} />}
+      {snapshotsFor && (
+        <SnapshotsModal
+          student={snapshotsFor}
+          onClose={() => setSnapshotsFor(null)}
+          onAfterRestore={load}
+        />
+      )}
     </AppLayout>
   );
 }
@@ -248,6 +264,179 @@ function CredentialsModal({ data, onClose }) {
         <button onClick={copy} className="mt-4 btn-red w-full py-3 rounded-xl font-semibold inline-flex items-center justify-center gap-2" data-testid="copy-credentials-btn">
           {copied ? <><Check className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy credentials</>}
         </button>
+      </div>
+    </div>
+  );
+}
+
+
+function reasonBadge(reason) {
+  const map = {
+    login: { label: "Session login", cls: "bg-blue-50 text-blue-700 border-blue-200" },
+    quiz: { label: "Quiz submitted", cls: "bg-purple-50 text-purple-700 border-purple-200" },
+    module_complete: { label: "Module complete", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    homework: { label: "Homework", cls: "bg-amber-50 text-amber-800 border-amber-200" },
+    manual: { label: "Manual backup", cls: "bg-zinc-100 text-zinc-700 border-zinc-200" },
+    pre_restore: { label: "Pre-restore safety", cls: "bg-red-50 text-[var(--s2d-red)] border-red-200" },
+  };
+  const r = map[reason] || { label: reason, cls: "bg-zinc-100 text-zinc-700 border-zinc-200" };
+  return (
+    <span className={`inline-flex items-center text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded border ${r.cls}`}>
+      {r.label}
+    </span>
+  );
+}
+
+function fmtWhen(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+function SnapshotsModal({ student, onClose, onAfterRestore }) {
+  const [snaps, setSnaps] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+
+  const load = async () => {
+    const { data } = await api.get(`/admin/students/${student.id}/snapshots`);
+    setSnaps(data.snapshots || []);
+  };
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data } = await api.get(`/admin/students/${student.id}/snapshots`);
+      if (active) setSnaps(data.snapshots || []);
+    })();
+    return () => { active = false; };
+  }, [student.id]);
+
+  const createManual = async () => {
+    setBusy(true);
+    try {
+      await api.post(`/admin/students/${student.id}/snapshots`, { note: note.trim() });
+      toast.success("Snapshot saved.");
+      setNote("");
+      await load();
+    } catch (e) {
+      toast.error(formatApiErrorDetail(e.response?.data?.detail) || "Failed to create snapshot");
+    } finally { setBusy(false); }
+  };
+
+  const restore = async (snap) => {
+    const when = fmtWhen(snap.taken_at);
+    if (!window.confirm(`Restore ${student.name}'s progress to ${when}? A safety snapshot of their current state will be taken automatically.`)) return;
+    setBusy(true);
+    try {
+      const { data } = await api.post(`/admin/students/${student.id}/restore/${snap.id}`);
+      toast.success(`Restored ${data.modules_restored} progress record(s).`);
+      await load();
+      onAfterRestore?.();
+    } catch (e) {
+      toast.error(formatApiErrorDetail(e.response?.data?.detail) || "Restore failed");
+    } finally { setBusy(false); }
+  };
+
+  const removeSnap = async (snap) => {
+    if (!window.confirm("Delete this snapshot? This cannot be undone.")) return;
+    try {
+      await api.delete(`/admin/students/${student.id}/snapshots/${snap.id}`);
+      await load();
+    } catch (e) {
+      toast.error("Delete failed");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-5" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col relative"
+        onClick={(e) => e.stopPropagation()}
+        data-testid="snapshots-modal"
+      >
+        <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-black/5 z-10"><X className="w-4 h-4" /></button>
+
+        <div className="p-7 pb-5 border-b border-black/5">
+          <div className="text-xs font-mono uppercase tracking-widest text-[var(--s2d-red)] inline-flex items-center gap-1.5">
+            <ShieldCheck className="w-3 h-3" /> Cloud progress backups
+          </div>
+          <h2 className="font-display font-black text-2xl tracking-tight mt-1">{student.name}</h2>
+          <p className="text-sm text-[var(--s2d-muted)] mt-1">
+            Auto-backed on login (max once per 6 h), on every quiz, module completion, and homework. Manual backups always preserved. Last 10 kept; safety snapshots before a restore are never pruned.
+          </p>
+
+          <div className="mt-4 flex flex-col sm:flex-row gap-2">
+            <input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Optional note (e.g. 'Before mid-term review')"
+              className="input-base flex-1"
+              data-testid="snapshot-note-input"
+              maxLength={300}
+            />
+            <button
+              onClick={createManual}
+              disabled={busy}
+              className="btn-red px-5 py-3 rounded-xl font-semibold inline-flex items-center gap-2 disabled:opacity-60"
+              data-testid="create-snapshot-btn"
+            >
+              <Save className="w-4 h-4" /> Save snapshot
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-7 py-5">
+          {snaps === null ? (
+            <div className="h-32 grid place-items-center">
+              <div className="h-8 w-8 border-2 border-black/10 border-t-[var(--s2d-red)] rounded-full animate-spin" />
+            </div>
+          ) : snaps.length === 0 ? (
+            <div className="text-center text-sm text-[var(--s2d-muted)] py-8" data-testid="snapshots-empty">
+              No snapshots yet. They&apos;ll appear here automatically as the student progresses.
+            </div>
+          ) : (
+            <ol className="space-y-3" data-testid="snapshots-list">
+              {snaps.map((s) => (
+                <li key={s.id} className="rounded-xl border border-black/5 p-4 flex items-start gap-3 hover:border-black/15 transition" data-testid={`snapshot-row-${s.id}`}>
+                  <div className="mt-1 w-8 h-8 rounded-lg bg-[var(--s2d-surface)] grid place-items-center shrink-0">
+                    <History className="w-4 h-4 text-[var(--s2d-ink)]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="font-semibold text-sm">{fmtWhen(s.taken_at)}</div>
+                      {reasonBadge(s.reason)}
+                    </div>
+                    <div className="text-xs text-[var(--s2d-muted)] mt-1 font-mono">
+                      {s.modules_completed}/{s.total_modules} modules · {(s.total_watched_seconds / 3600).toFixed(1)} hrs · {s.course_progress_pct}% complete
+                    </div>
+                    {s.note && (
+                      <div className="text-xs text-[var(--s2d-ink)] mt-2 italic">&ldquo;{s.note}&rdquo;</div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => restore(s)}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--s2d-ink)] text-white text-xs font-semibold hover:bg-[var(--s2d-ink-soft)] disabled:opacity-50"
+                      data-testid={`restore-snapshot-${s.id}`}
+                    >
+                      <RotateCcw className="w-3 h-3" /> Restore
+                    </button>
+                    <button
+                      onClick={() => removeSnap(s)}
+                      className="p-2 rounded-lg hover:bg-red-50"
+                      title="Delete snapshot"
+                      data-testid={`delete-snapshot-${s.id}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-[var(--s2d-muted)] hover:text-[var(--s2d-red)]" />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
       </div>
     </div>
   );
