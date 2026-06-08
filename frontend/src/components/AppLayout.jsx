@@ -61,7 +61,10 @@ export default function AppLayout({ children }) {
             <div className="w-9 h-9 rounded-full bg-[var(--s2d-ink)] text-white grid place-items-center text-xs font-bold" data-testid="user-avatar">
               {initials}
             </div>
-            <button onClick={handleLogout} data-testid="logout-btn" className="ml-2 inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[var(--s2d-ink)] hover:bg-[var(--s2d-surface)] transition">
+            <Link to="/account/password" data-testid="change-password-nav" className="ml-2 inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[var(--s2d-ink)] hover:bg-[var(--s2d-surface)] transition">
+              Password
+            </Link>
+            <button onClick={handleLogout} data-testid="logout-btn" className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[var(--s2d-ink)] hover:bg-[var(--s2d-surface)] transition">
               <LogOut className="w-4 h-4" />
               <span>Logout</span>
             </button>

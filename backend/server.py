@@ -209,6 +209,16 @@ class RegisterIn(BaseModel):
     password: str = Field(min_length=6, max_length=128)
 
 
+class EnrollIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    email: EmailStr
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=6, max_length=128)
+
+
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
@@ -303,23 +313,8 @@ async def root():
 # ---------- Auth ----------
 @api.post("/auth/register")
 async def register(body: RegisterIn, response: Response):
-    email = body.email.lower()
-    if await db.users.find_one({"email": email}):
-        raise HTTPException(status_code=400, detail="Email already registered")
-    user_id = str(uuid.uuid4())
-    user_doc = {
-        "id": user_id,
-        "email": email,
-        "name": body.name.strip(),
-        "password_hash": hash_password(body.password),
-        "role": "student",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    await db.users.insert_one(user_doc)
-    access = create_access_token(user_id, email, "student")
-    refresh = create_refresh_token(user_id)
-    set_auth_cookies(response, access, refresh)
-    return {"id": user_id, "email": email, "name": body.name, "role": "student", "created_at": user_doc["created_at"], "token": access}
+    """Disabled — students are enrolled by admins. Kept for compatibility but rejects."""
+    raise HTTPException(status_code=403, detail="Self-registration is disabled. Please contact Safe2Drive Ontario to be enrolled.")
 
 
 @api.post("/auth/login")
@@ -347,9 +342,22 @@ async def logout(response: Response, _: dict = Depends(get_current_user)):
     return {"ok": True}
 
 
+@api.post("/auth/change-password")
+async def change_password(body: ChangePasswordIn, user: dict = Depends(get_current_user)):
+    full = await db.users.find_one({"id": user["id"]})
+    if not full or not verify_password(body.current_password, full["password_hash"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {"password_hash": hash_password(body.new_password), "must_change_password": False}},
+    )
+    return {"ok": True}
+
+
 @api.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
-    return user
+    full = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password_hash": 0})
+    return full or user
 
 
 # ---------- Progress helpers ----------
@@ -545,6 +553,63 @@ async def admin_students(_: dict = Depends(require_admin)):
             "course_progress_pct": round((modules_completed / total_modules) * 100) if total_modules else 0,
         })
     return out
+
+
+def _generate_temp_password(length: int = 10) -> str:
+    import secrets, string
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+@api.post("/admin/enroll")
+async def admin_enroll(body: EnrollIn, _: dict = Depends(require_admin)):
+    email = body.email.lower()
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(status_code=400, detail="A user with this email already exists")
+    temp_password = _generate_temp_password()
+    user_id = str(uuid.uuid4())
+    await db.users.insert_one({
+        "id": user_id,
+        "email": email,
+        "name": body.name.strip(),
+        "password_hash": hash_password(temp_password),
+        "role": "student",
+        "must_change_password": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    # NOTE: email sending is not configured yet. The temp password is returned ONCE
+    # so the admin can copy it and share with the student manually until SMTP/Resend
+    # integration is added.
+    return {
+        "ok": True,
+        "id": user_id,
+        "name": body.name,
+        "email": email,
+        "temp_password": temp_password,
+        "email_sent": False,
+    }
+
+
+@api.delete("/admin/students/{user_id}")
+async def admin_delete_student(user_id: str, _: dict = Depends(require_admin)):
+    res = await db.users.delete_one({"id": user_id, "role": "student"})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Student not found")
+    await db.progress.delete_many({"user_id": user_id})
+    return {"ok": True}
+
+
+@api.post("/admin/students/{user_id}/reset-password")
+async def admin_reset_password(user_id: str, _: dict = Depends(require_admin)):
+    user = await db.users.find_one({"id": user_id, "role": "student"})
+    if not user:
+        raise HTTPException(status_code=404, detail="Student not found")
+    temp_password = _generate_temp_password()
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"password_hash": hash_password(temp_password), "must_change_password": True}},
+    )
+    return {"ok": True, "temp_password": temp_password, "email": user["email"], "name": user["name"]}
 
 
 @api.get("/admin/stats")

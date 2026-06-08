@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import AppLayout from "@/components/AppLayout";
-import api from "@/lib/api";
-import { Users, GraduationCap, BookCheck, Clock } from "lucide-react";
+import api, { formatApiErrorDetail } from "@/lib/api";
+import { Users, GraduationCap, BookCheck, Clock, UserPlus, KeyRound, Trash2, Copy, X, Check, Mail } from "lucide-react";
+import { toast } from "sonner";
 
 function fmtHrs(seconds) {
   const h = seconds / 3600;
@@ -12,16 +13,40 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showEnroll, setShowEnroll] = useState(false);
+  const [credModal, setCredModal] = useState(null); // { name, email, temp_password, intro }
+
+  const load = async () => {
+    const [s, l] = await Promise.all([api.get("/admin/stats"), api.get("/admin/students")]);
+    setStats(s.data);
+    setStudents(l.data);
+  };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const [s, l] = await Promise.all([api.get("/admin/stats"), api.get("/admin/students")]);
-        setStats(s.data);
-        setStudents(l.data);
-      } finally { setLoading(false); }
-    })();
+    (async () => { await load(); setLoading(false); })();
   }, []);
+
+  const resetPassword = async (student) => {
+    if (!window.confirm(`Reset password for ${student.name}? They will be required to set a new one on next login.`)) return;
+    try {
+      const { data } = await api.post(`/admin/students/${student.id}/reset-password`);
+      setCredModal({ name: data.name, email: data.email, temp_password: data.temp_password, intro: "New temporary password generated." });
+      await load();
+    } catch (e) {
+      toast.error(formatApiErrorDetail(e.response?.data?.detail) || "Reset failed");
+    }
+  };
+
+  const removeStudent = async (student) => {
+    if (!window.confirm(`Permanently delete ${student.name}? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/admin/students/${student.id}`);
+      toast.success(`${student.name} removed.`);
+      await load();
+    } catch (e) {
+      toast.error(formatApiErrorDetail(e.response?.data?.detail) || "Delete failed");
+    }
+  };
 
   if (loading || !stats) {
     return (
@@ -36,10 +61,15 @@ export default function AdminDashboard() {
   return (
     <AppLayout>
       <div className="space-y-8 fade-up" data-testid="admin-dashboard">
-        <header>
-          <div className="text-xs font-mono uppercase tracking-widest text-[var(--s2d-red)] mb-2">Admin · Safe2Drive Ontario</div>
-          <h1 className="font-display font-black text-4xl md:text-5xl tracking-tight">Operations console</h1>
-          <p className="text-[var(--s2d-muted)] mt-2">Track student progress across all 8 MTO modules.</p>
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-3">
+          <div>
+            <div className="text-xs font-mono uppercase tracking-widest text-[var(--s2d-red)] mb-2">Admin · Safe2Drive Ontario</div>
+            <h1 className="font-display font-black text-4xl md:text-5xl tracking-tight">Operations console</h1>
+            <p className="text-[var(--s2d-muted)] mt-2">Enroll new students and track progress across all 8 MTO modules.</p>
+          </div>
+          <button onClick={() => setShowEnroll(true)} className="btn-red px-5 py-3 rounded-xl font-semibold inline-flex items-center gap-2" data-testid="open-enroll-btn">
+            <UserPlus className="w-4 h-4" /> Enroll student
+          </button>
         </header>
 
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-5">
@@ -82,15 +112,19 @@ export default function AdminDashboard() {
                   <th className="text-left px-6 py-3">Watched</th>
                   <th className="text-left px-6 py-3">Modules</th>
                   <th className="text-left px-6 py-3">Progress</th>
+                  <th className="text-right px-6 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {students.length === 0 && (
-                  <tr><td colSpan="6" className="px-6 py-10 text-center text-[var(--s2d-muted)]">No students yet.</td></tr>
+                  <tr><td colSpan="7" className="px-6 py-10 text-center text-[var(--s2d-muted)]">No students yet — enroll one above.</td></tr>
                 )}
                 {students.map((s) => (
                   <tr key={s.id} className="border-t border-black/5 hover:bg-[var(--s2d-surface)]/40" data-testid={`admin-student-row-${s.id}`}>
-                    <td className="px-6 py-4 font-semibold">{s.name}</td>
+                    <td className="px-6 py-4 font-semibold flex items-center gap-2">
+                      {s.name}
+                      {s.must_change_password && <span className="text-[9px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">First login</span>}
+                    </td>
                     <td className="px-6 py-4 font-mono text-xs">{s.email}</td>
                     <td className="px-6 py-4 text-xs text-[var(--s2d-muted)]">{new Date(s.created_at).toLocaleDateString()}</td>
                     <td className="px-6 py-4 font-mono">{fmtHrs(s.watched_seconds)}</td>
@@ -103,6 +137,16 @@ export default function AdminDashboard() {
                         <div className="text-xs font-mono w-9 text-right">{s.course_progress_pct}%</div>
                       </div>
                     </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => resetPassword(s)} className="p-2 rounded-lg hover:bg-black/5" title="Reset password" data-testid={`reset-pw-${s.id}`}>
+                          <KeyRound className="w-4 h-4 text-[var(--s2d-muted)] hover:text-[var(--s2d-ink)]" />
+                        </button>
+                        <button onClick={() => removeStudent(s)} className="p-2 rounded-lg hover:bg-red-50" title="Delete student" data-testid={`delete-${s.id}`}>
+                          <Trash2 className="w-4 h-4 text-[var(--s2d-muted)] hover:text-[var(--s2d-red)]" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -110,6 +154,101 @@ export default function AdminDashboard() {
           </div>
         </section>
       </div>
+
+      {showEnroll && (
+        <EnrollModal
+          onClose={() => setShowEnroll(false)}
+          onEnrolled={(cred) => { setShowEnroll(false); setCredModal({ ...cred, intro: "Student enrolled. Share these credentials securely." }); load(); }}
+        />
+      )}
+
+      {credModal && <CredentialsModal data={credModal} onClose={() => setCredModal(null)} />}
     </AppLayout>
+  );
+}
+
+function EnrollModal({ onClose, onEnrolled }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true); setError("");
+    try {
+      const { data } = await api.post("/admin/enroll", { name: name.trim(), email: email.trim() });
+      toast.success(`${data.name} enrolled.`);
+      onEnrolled(data);
+    } catch (err) {
+      const msg = formatApiErrorDetail(err.response?.data?.detail) || err.message;
+      setError(msg);
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-5" onClick={onClose}>
+      <div className="bg-white rounded-2xl max-w-md w-full p-7 relative" onClick={(e) => e.stopPropagation()} data-testid="enroll-modal">
+        <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-black/5"><X className="w-4 h-4" /></button>
+        <div className="text-xs font-mono uppercase tracking-widest text-[var(--s2d-red)]">New enrollment</div>
+        <h2 className="font-display font-black text-2xl tracking-tight mt-1">Enroll a student</h2>
+        <p className="text-sm text-[var(--s2d-muted)] mt-1">A temporary password is generated automatically — share it with the student. They&apos;ll be required to change it on first login.</p>
+        <form onSubmit={submit} className="mt-5 space-y-4" data-testid="enroll-form">
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--s2d-muted)] mb-2">Full name</label>
+            <input required className="input-base" value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" data-testid="enroll-name-input" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--s2d-muted)] mb-2">Email</label>
+            <input type="email" required className="input-base" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="student@email.com" data-testid="enroll-email-input" />
+          </div>
+          {error && <div className="text-sm text-[var(--s2d-red)] bg-red-50 border border-red-100 rounded-lg px-3 py-2" data-testid="enroll-error">{error}</div>}
+          <button type="submit" disabled={busy} className="btn-red w-full py-3 rounded-xl font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-60" data-testid="enroll-submit-btn">
+            <UserPlus className="w-4 h-4" />
+            {busy ? "Enrolling…" : "Enroll student"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function CredentialsModal({ data, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const text = `Login: ${data.email}\nTemporary password: ${data.temp_password}\n\nLog in at: ${window.location.origin}/login`;
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) { toast.error("Copy failed"); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-5">
+      <div className="bg-white rounded-2xl max-w-md w-full p-7 relative" data-testid="credentials-modal">
+        <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-black/5"><X className="w-4 h-4" /></button>
+        <div className="text-xs font-mono uppercase tracking-widest text-emerald-600 inline-flex items-center gap-1.5"><Check className="w-3 h-3" /> Success</div>
+        <h2 className="font-display font-black text-2xl tracking-tight mt-1">{data.name}</h2>
+        <p className="text-sm text-[var(--s2d-muted)] mt-1">{data.intro}</p>
+
+        <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 inline-flex items-start gap-2">
+          <Mail className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          <span>Email integration is not yet configured — copy these credentials and send them to the student manually.</span>
+        </div>
+
+        <div className="mt-4 rounded-xl bg-[var(--s2d-ink)] text-white p-4 font-mono text-sm" data-testid="credentials-display">
+          <div className="text-[10px] uppercase tracking-widest opacity-70">Email</div>
+          <div className="break-all">{data.email}</div>
+          <div className="text-[10px] uppercase tracking-widest opacity-70 mt-3">Temporary password</div>
+          <div className="font-bold tracking-wider">{data.temp_password}</div>
+        </div>
+
+        <button onClick={copy} className="mt-4 btn-red w-full py-3 rounded-xl font-semibold inline-flex items-center justify-center gap-2" data-testid="copy-credentials-btn">
+          {copied ? <><Check className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy credentials</>}
+        </button>
+      </div>
+    </div>
   );
 }

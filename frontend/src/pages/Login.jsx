@@ -26,6 +26,11 @@ export default function Login() {
       return;
     }
     toast.success(`Welcome back, ${res.user.name.split(" ")[0]}`);
+    // First-login forced password change
+    if (res.user.must_change_password) {
+      navigate("/account/password", { replace: true });
+      return;
+    }
     const next = location.state?.from?.pathname || (res.user.role === "admin" ? "/admin" : "/dashboard");
     navigate(next, { replace: true });
   };
@@ -93,10 +98,7 @@ export default function Login() {
           </form>
 
           <p className="mt-6 text-sm text-[var(--s2d-muted)]">
-            New here?{" "}
-            <Link to="/register" className="text-[var(--s2d-ink)] underline underline-offset-4 hover:text-[var(--s2d-red)]" data-testid="login-go-register">
-              Create an account
-            </Link>
+            Need an account? Contact Safe2Drive Ontario — your instructor will enroll you and email your login.
           </p>
 
           <div className="mt-10 ink-card p-4 text-xs text-[var(--s2d-muted)]" data-testid="login-demo-hint">

@@ -22,5 +22,9 @@ export default function ProtectedRoute({ children, adminOnly = false }) {
   if (adminOnly && user.role !== "admin") {
     return <Navigate to="/dashboard" replace />;
   }
+  // Force password change on first login (unless we're already on that page)
+  if (user.must_change_password && location.pathname !== "/account/password") {
+    return <Navigate to="/account/password" replace />;
+  }
   return children;
 }
