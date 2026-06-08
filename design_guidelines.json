@@ -1,0 +1,100 @@
+{
+  "theme": "light",
+  "archetype": "4_swiss_high_contrast",
+  "typography": {
+    "headings": {
+      "fontFamily": "'Cabinet Grotesk', sans-serif",
+      "weights": ["500", "700", "900"],
+      "tracking": "tracking-tight"
+    },
+    "body": {
+      "fontFamily": "'Satoshi', sans-serif",
+      "weights": ["400", "500", "700"]
+    },
+    "mono": {
+      "fontFamily": "'JetBrains Mono', monospace"
+    }
+  },
+  "colors": {
+    "background": "#FFFFFF",
+    "surface": "#F9F9F9",
+    "surface_alt": "#F3F4F6",
+    "border": "rgba(0,0,0,0.08)",
+    "primary": "#E60000",
+    "primary_hover": "#CC0000",
+    "primary_foreground": "#FFFFFF",
+    "text_main": "#111111",
+    "text_muted": "#666666",
+    "success": "#10B981",
+    "warning": "#F59E0B"
+  },
+  "spacing": {
+    "card_padding": "p-6 md:p-8",
+    "section_gap": "gap-8 md:gap-12"
+  },
+  "components": {
+    "card": "bg-white border border-black/10 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200",
+    "button_primary": "bg-[#E60000] text-white font-medium rounded-xl px-6 py-3 hover:bg-[#CC0000] transition-colors shadow-sm",
+    "button_secondary": "bg-white border border-black/10 text-[#111111] font-medium rounded-xl px-6 py-3 hover:bg-gray-50 transition-colors",
+    "input": "w-full border border-black/10 rounded-xl px-4 py-3 bg-[#F9F9F9] focus:bg-white focus:ring-2 focus:ring-[#E60000]/20 focus:border-[#E60000] transition-all outline-none",
+    "module_slide_viewer": "bg-[#111111] text-white rounded-3xl overflow-hidden aspect-video relative flex flex-col justify-between"
+  },
+  "media": {
+    "logo": "https://cdn.prod.website-files.com/671db6b948a39462a6b930cc/67d7da1fcc787b9d150dc2d7_Screenshot%202025-03-17%20at%204.15.07%E2%80%AFAM.png",
+    "auth_hero": "https://images.unsplash.com/photo-1527593167147-e9c94a5883e6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODh8MHwxfHNlYXJjaHwxfHxkcml2aW5nJTIwc2Nob29sJTIwY2FyJTIwc3RlZXJpbmclMjB3aGVlbCUyMG1vZGVybnxlbnwwfHx8fDE3ODA5MDM1MDJ8MA&ixlib=rb-4.1.0&q=85",
+    "modules": [
+      {
+        "id": 1,
+        "title": "Rules of the Road",
+        "image_url": "https://images.unsplash.com/photo-1557404763-69708cd8b9ce?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHwxfHx0cmFmZmljJTIwbGlnaHQlMjBpbnRlcnNlY3Rpb24lMjB1cmJhbnxlbnwwfHx8fDE3ODA5MDM1MDJ8MA&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "id": 2,
+        "title": "Vehicle & Components",
+        "image_url": "https://images.unsplash.com/photo-1654616111851-5394318e3279?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHwxfHxjYXIlMjBlbmdpbmUlMjBiYXklMjBjbGVhbnxlbnwwfHx8fDE3ODA5MDM1MDJ8MA&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "id": 3,
+        "title": "Vehicle Handling",
+        "image_url": "https://images.unsplash.com/photo-1611448746128-7c39e03b71e4?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwxfHxkcml2ZXIlMjBoYW5kcyUyMG9uJTIwc3RlZXJpbmclMjB3aGVlbCUyMHN1bnNldHxlbnwwfHx8fDE3ODA5MDM1MDJ8MA&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "id": 4,
+        "title": "Driver Behaviour",
+        "image_url": "https://images.unsplash.com/photo-1640040104532-9fccaa7b408d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwxfHxyZWFyJTIwdmlldyUyMG1pcnJvciUyMGRyaXZpbmd8ZW58MHx8fHwxNzgwOTAzNTAyfDA&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "id": 5,
+        "title": "Respect & Responsibility",
+        "image_url": "https://images.unsplash.com/photo-1624566842042-2c3a03ab8d19?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwxfHxwZWRlc3RyaWFuJTIwY3Jvc3NpbmclMjBzdHJlZXQlMjB1cmJhbnxlbnwwfHx8fDE3ODA5MDM1MDJ8MA&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "id": 6,
+        "title": "Sharing the Road",
+        "image_url": "https://images.unsplash.com/photo-1611147533125-9ca445f32036?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTF8MHwxfHNlYXJjaHwxfHxoaWdod2F5JTIwdHJhZmZpYyUyMGNhcnMlMjBkcml2aW5nfGVufDB8fHx8MTc4MDkwMzUwMnww&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "id": 7,
+        "title": "Attention",
+        "image_url": "https://images.unsplash.com/photo-1610741083757-1ae88e1a17f7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHwxfHxyYWlueSUyMGRyaXZpbmclMjB3aW5kc2hpZWxkJTIwd2lwZXJzfGVufDB8fHx8MTc4MDkwMzUwMnww&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "id": 8,
+        "title": "Perception & Risk Management",
+        "image_url": "https://images.pexels.com/photos/31748180/pexels-photo-31748180.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Build a modern e-learning platform with a Swiss & High-Contrast aesthetic. Use Cabinet Grotesk for headings and Satoshi for body. Implement via Google Fonts or Fontshare links in index.html.",
+    "Implement JWT auth for students (login/register) and basic mocked admin role.",
+    "Student Dashboard must display a Welcome banner, Course Progress % (linear bar), Remaining Time For Today, Total Watched Time (MTO 20-hour tracker), and Modules Completed count.",
+    "Render the 8 modules as a bento-style grid or clean card list. Cards should feel tactile (1px border, soft shadow, scale on hover).",
+    "For the Module Slide Viewer, create a cinematic video-player-like UI. Dark background, PREV/NEXT buttons, audio narration controls (mocked), slide counter, and a progress bar at the top.",
+    "Quiz cards and Final Test card should cleanly show status (Eligible/Not Eligible, Attempted/Unattempted) and Total Score %.",
+    "Homework section should list 8 dark module cards showing Status: Incomplete/Complete.",
+    "Include a 'Continue From Where You Left Off' sticky bar at the bottom of the screen if a module is in progress.",
+    "Add an Admin panel to manage students and view their progress in a data table.",
+    "Ensure all interactive elements have data-testid attributes for testing."
+  ]
+}
